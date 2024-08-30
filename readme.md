@@ -3,6 +3,43 @@
 ## Project Description
 This project sets up a simple AWS VPC environment using Terraform. It includes one VPC, four subnets, an Internet Gateway, a route table, and two EC2 instances and 2 S3 buckets.
 
+                  +-----------------+
+                  |    VPC (10.1.0.0/16)     |
+                  |     Name: main-vpc       |
+                  +-----------------+
+                      |               |
+         +------------------+    +------------------+
+         |    Public Subnets    |    Private Subnets    |
+         |   (10.1.0.0/24)     |    (10.1.2.0/24)     |
+         |   (10.1.1.0/24)     |    (10.1.3.0/24)     |
+         +------------------+    +------------------+
+               |                       |
+    +---------------------+      +---------------------+
+    |      Internet Gateway      |      Route Table       |
+    |         (main-igw)          |    (public-rt)         |
+    +---------------------+      +---------------------+
+               |                       |
+   +---------------------+    +---------------------+
+   |    Application Load Balancer (ALB)  |
+   |          (app-load-balancer)        |
+   +---------------------+    +---------------------+
+               |                       |
++---------------------+      +---------------------+
+|   EC2 Instances (public-sg)    |   Auto Scaling Group   |
+|        (subnet2)                         |   (asg)                          |
++---------------------+      +---------------------+
+               |
++---------------------+
+|     S3 Buckets        |
+|   (images-imab)     |
+|   (logs-b)             |
++---------------------+
+
++---------------------+
+| IAM Roles and Profiles|
+|   (asg-role, ec2-role) |
++---------------------+
+
 the structure in terraform-vpc is :
 - main.tf for terraform resources
 - outputs.tf for logs outputs
