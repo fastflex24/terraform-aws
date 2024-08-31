@@ -1,9 +1,6 @@
 # AWS VPC with Terraform
 
-## Project Description
-This project sets up a simple AWS VPC environment using Terraform. It includes one VPC, four subnets, an Internet Gateway, a route table, and two EC2 instances and 2 S3 buckets.
-
-                  +-----------------+
+               +-----------------+
                   |    VPC (10.1.0.0/16)     |
                   |     Name: main-vpc       |
                   +-----------------+
@@ -19,26 +16,29 @@ This project sets up a simple AWS VPC environment using Terraform. It includes o
     |         (main-igw)          |    (public-rt)         |
     +---------------------+      +---------------------+
                |                       |
-   +---------------------+    +---------------------+
-   |    Application Load Balancer (ALB)  |
-   |          (app-load-balancer)        |
-   +---------------------+    +---------------------+
-               |                       |
-+---------------------+      +---------------------+
-|   EC2 Instances (public-sg)    |   Auto Scaling Group   |
-|        (subnet2)                         |   (asg)                          |
-+---------------------+      +---------------------+
-               |
-+---------------------+
-|     S3 Buckets        |
-|   (images-imab)     |
-|   (logs-b)             |
-+---------------------+
+       +---------------------+    +---------------------+
+       |    Application Load Balancer (ALB)  |
+       |          (app-load-balancer)        |
+       +---------------------+    +---------------------+
+                   |                       |
+    +---------------------+      +---------------------+
+    |   EC2 Instances (public-sg)    |   Auto Scaling Group   |
+    |        (subnet2)                         |   (asg)                          |
+    +---------------------+      +---------------------+
+                   |
+    +---------------------+
+    |     S3 Buckets        |
+    |   (images-imab)     |
+    |   (logs-b)             |
+    +---------------------+
+    
+    +---------------------+
+    | IAM Roles and Profiles|
+    |   (asg-role, ec2-role) |
+    +---------------------+
 
-+---------------------+
-| IAM Roles and Profiles|
-|   (asg-role, ec2-role) |
-+---------------------+
+## Project Description
+This project sets up a simple AWS VPC environment using Terraform. It includes one VPC, four subnets, an Internet Gateway, a route table, and two EC2 instances and 2 S3 buckets.
 
 the structure in terraform-vpc is :
 - main.tf for terraform resources
