@@ -18,10 +18,6 @@ output "private_subnet_id_3" {
   value = aws_subnet.subnet4.id
 }
 
-output "instance_id" {
-  value = aws_instance.ec2_instance.id
-}
-
 output "alb_dns_name" {
   value = aws_lb.alb.dns_name
 }

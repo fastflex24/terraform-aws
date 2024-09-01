@@ -40,6 +40,9 @@ This project sets up a simple AWS VPC environment using Terraform. It includes o
 |   (asg-role, ec2-role) |
 +---------------------+
 
+
+
+
 the structure in terraform-vpc is :
 - main.tf for terraform resources
 - outputs.tf for logs outputs

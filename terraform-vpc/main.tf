@@ -80,73 +80,116 @@ resource "aws_subnet" "subnet4" {
   }
 }
 
-resource "aws_security_group" "sg_public" {
-  vpc_id = aws_vpc.main.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_kms_key" "ebs_key" {
+  description             = "KMS key for encrypting EBS volumes"
+  key_usage               = "ENCRYPT_DECRYPT"
+  customer_master_key_spec = "SYMMETRIC_DEFAULT"
+  deletion_window_in_days = 30
 
   tags = {
-    Name = "public-sg"
+    Name = "ebs-key"
+    Environment = "Production"
   }
 }
 
-resource "aws_security_group" "sg_private" {
-  vpc_id = aws_vpc.main.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "private-sg"
-  }
+resource "aws_kms_alias" "ebs_key_alias" {
+  name          = "alias/ebs-key-alias"
+  target_key_id = aws_kms_key.ebs_key.id
 }
 
-resource "aws_instance" "ec2_instance" {
-  ami                     = "ami-007868005aea67c54" # Red Hat Linux AMI
-  instance_type           = "t2.micro"
-  subnet_id               = aws_subnet.subnet2.id
-  vpc_security_group_ids  = [aws_security_group.sg_public.id]
-  associate_public_ip_address = true
+module "coalfire_ec2" {
+  source = "github.com/Coalfire-CF/terraform-aws-ec2"
 
-  tags = {
-    Name = "redhat-instance"
-  }
+  name = var.instance_name
 
-  root_block_device {
-    volume_size = 20
-  }
+  ami               = var.ami_id
+  ec2_instance_type = var.instance_type
 
+  vpc_id = aws_vpc.main.id
+  subnet_ids = [aws_subnet.subnet2.id]
+
+   ec2_key_pair    = "coalfire_ec2-module"
+   ebs_kms_key_arn = aws_kms_key.ebs_key.arn
+
+  # Storage
+  root_volume_size = var.instance_size
+
+  ebs_optimized = false
   user_data = file("scripts/install-httpd.sh")
+
+  # Tagging
+  global_tags = {}
+}
+
+module "coalfire-private-sg" {
+  source = "github.com/Coalfire-CF/terraform-aws-securitygroup"
+
+  name = "private_security_group_module_coalfire_sg"
+
+  vpc_id = aws_vpc.main.id
+
+  ingress_rules = {
+    "allow_https" = {
+      ip_protocol = "tcp"
+      from_port   = "443"
+      to_port     = "443"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+    "allow_ssh" = {
+      ip_protocol    = "tcp"
+      from_port   = "22"
+      to_port     = "22"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+  }
+
+  egress_rules = {
+    "allow_all_egress" = {
+    from_port   = 0
+    to_port     = 0
+    ip_protocol = "-1"
+    cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+  }
+}
+
+module "coalfire-public-sg" {
+  source = "github.com/Coalfire-CF/terraform-aws-securitygroup"
+
+  name = "public_security_group_module_coalfire_sg"
+
+  vpc_id = aws_vpc.main.id
+
+  ingress_rules = {
+    "allow_https" = {
+      ip_protocol = "tcp"
+      from_port   = "443"
+      to_port     = "443"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+    "allow_ssh" = {
+      ip_protocol    = "tcp"
+      from_port   = "22"
+      to_port     = "22"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+    "allow_80" = {
+      from_port   = 80
+      to_port     = 80
+      ip_protocol    = "tcp"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+  }
+
+  egress_rules = {
+    "allow_all_egress" = {
+      from_port   = 0
+      to_port     = 0
+      ip_protocol = "-1"
+      cidr_ipv4   = aws_vpc.main.cidr_block
+    }
+  }
+
 }
 
 resource "aws_autoscaling_group" "asg" {
@@ -174,64 +217,43 @@ resource "aws_launch_configuration" "lc" {
   }
 }
 
-resource "aws_s3_bucket" "images" {
-  bucket = "images-imab" # adjust name accordingly
+
+module "s3_bucket_images" {
+  source = "github.com/Coalfire-CF/terraform-aws-s3"
+
+  name   = "images-imab"
+  enable_lifecycle_configuration_rules = true
+   lifecycle_configuration_rules = [
+     {
+        id     = "archive-rule"
+        prefix = "memes/"
+        enabled = true
+  
+       enable_glacier_transition            = true
+       enable_deeparchive_transition        = true
+  
+       glacier_transition_days     = 90
+     }
+   ]
+  enable_kms                    = true
+  enable_server_side_encryption = true
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "images_lifecycle" {
-  bucket = aws_s3_bucket.images.id
+module "s3_bucket_logs" {
+  source = "github.com/Coalfire-CF/terraform-aws-s3"
 
-  rule {
-    id     = "archive-rule"
-    prefix = "memes/"
-    status = "Enabled"
-
-    filter {
-      prefix = "memes/"
-    }
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
-    }
-  }
-}
-
-resource "aws_s3_bucket" "logs" {
-  bucket = "logs-b" # adjust name accordingly
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "logs_lifecycle" {
-  bucket = aws_s3_bucket.logs.id
-
-  rule {
-    id     = "active-rule"
-    prefix = "active/"
-    status = "Enabled"
-
-    filter {
-      prefix = "active/"
-    }
-
-    transition {
-      days          = 90
-      storage_class = "GLACIER"
-    }
-  }
-
-  rule {
-    id     = "inactive-rule"
-    prefix = "inactive/"
-    status = "Enabled"
-
-    filter {
-      prefix = "inactive/"
-    }
-
-    expiration {
-      days = 90
-    }
-  }
+  name   = "logs-b"
+  enable_lifecycle_configuration_rules = true
+   lifecycle_configuration_rules = [
+     {
+       id      = "inactive-rule"
+       prefix  = "inactive/"
+       enabled = true
+       expiration_days             = 90
+     }
+   ]
+  enable_kms                    = true
+  enable_server_side_encryption = true
 }
 
 resource "aws_iam_role" "asg_role" {
@@ -291,7 +313,7 @@ resource "aws_lb" "alb" {
   name               = "application-load-balancer"
   internal           = false
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.sg_public.id]
+  security_groups = [module.coalfire-public-sg.id]
   subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
 
   enable_deletion_protection = false

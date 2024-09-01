@@ -4,6 +4,21 @@ variable "region" {
   default     = "us-east-1"
 }
 
+variable "instance_name"{
+  default = "coalfire-instance"
+}
+variable "instance_size"{
+  default = 20
+}
+
+variable "instance_type"{
+  default= "t2.micro"
+}
+
+variable "ami_id"{
+  default = "ami-007868005aea67c54"
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   default     = "10.1.0.0/16"
@@ -37,16 +52,6 @@ variable "availability_zone1" {
 variable "availability_zone2" {
   description = "Availability Zone for Subnet 3 and 4"
   default     = "us-east-1b"
-}
-
-variable "instance_type" {
-  description = "Instance type for the EC2 instances"
-  default     = "t2.micro"
-}
-
-variable "ami_id" {
-  description = "AMI ID for the Red Hat Linux instances"
-  default     = "ami-0b6f7b81f37edb95e"  # Red Hat Linux AMI ID
 }
 
 variable "min_asg_size" {
